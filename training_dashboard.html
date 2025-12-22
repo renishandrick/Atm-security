@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YOLOv8 Training Dashboard - Live</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #fff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-top: 10px;
+        }
+        
+        .status-active {
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-inactive {
+            background: #f44336;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .card h2 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #ffd700;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-label {
+            font-weight: 500;
+            opacity: 0.9;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 40px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+        
+        .gpu-temp {
+            font-size: 2em;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .temp-normal { color: #4CAF50; }
+        .temp-warm { color: #FFC107; }
+        .temp-hot { color: #FF5722; }
+        
+        .update-time {
+            text-align: center;
+            margin-top: 20px;
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+        
+        .eta-large {
+            font-size: 2.5em;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: bold;
+            color: #ffd700;
+        }
+        
+        .chart-container {
+            grid-column: 1 / -1;
+            height: 300px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.5em;
+        }
+        
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border-left: 4px solid #FF9800;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        
+        .success {
+            background: rgba(76, 175, 80, 0.2);
+            border-left: 4px solid #4CAF50;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 YOLOv8 Training Monitor</h1>
+            <div id="trainingStatus" class="status-badge">Checking...</div>
+            <div class="update-time">Auto-refresh every 5 seconds</div>
+        </div>
+        
+        <div class="grid">
+            <!-- Progress Card -->
+            <div class="card" style="grid-column: 1 / -1;">
+                <h2>📊 Training Progress</h2>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div id="progressFill" class="progress-fill" style="width: 0%;">0%</div>
+                    </div>
+                    <div class="progress-text">
+                        <span id="epochText">Epoch 0/100</span>
+                    </div>
+                </div>
+                <div class="eta-large" id="etaText">Calculating ETA...</div>
+            </div>
+            
+            <!-- GPU Status Card -->
+            <div class="card">
+                <h2>🎮 GPU Status</h2>
+                <div class="metric">
+                    <span class="metric-label">Utilization</span>
+                    <span class="metric-value" id="gpuUtil">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">VRAM Usage</span>
+                    <span class="metric-value" id="gpuMem">--</span>
+                </div>
+                <div class="gpu-temp" id="gpuTemp">--°C</div>
+                <div class="metric">
+                    <span class="metric-label">Power Draw</span>
+                    <span class="metric-value" id="gpuPower">--</span>
+                </div>
+            </div>
+            
+            <!-- Training Losses Card -->
+            <div class="card">
+                <h2>📉 Training Losses</h2>
+                <div class="metric">
+                    <span class="metric-label">Box Loss</span>
+                    <span class="metric-value" id="boxLoss">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Class Loss</span>
+                    <span class="metric-value" id="clsLoss">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">DFL Loss</span>
+                    <span class="metric-value" id="dflLoss">--</span>
+                </div>
+            </div>
+            
+            <!-- Validation Metrics Card -->
+            <div class="card">
+                <h2>🎯 Validation Metrics</h2>
+                <div class="metric">
+                    <span class="metric-label">Precision</span>
+                    <span class="metric-value" id="precision">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Recall</span>
+                    <span class="metric-value" id="recall">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">mAP50</span>
+                    <span class="metric-value" id="map50">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">mAP50-95</span>
+                    <span class="metric-value" id="map5095">--</span>
+                </div>
+            </div>
+            
+            <!-- Time Info Card -->
+            <div class="card">
+                <h2>⏱️ Time Information</h2>
+                <div class="metric">
+                    <span class="metric-label">Time Elapsed</span>
+                    <span class="metric-value" id="timeElapsed">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Avg per Epoch</span>
+                    <span class="metric-value" id="avgEpoch">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Time Remaining</span>
+                    <span class="metric-value" id="timeRemaining">--</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Completion Time</span>
+                    <span class="metric-value" id="completionTime">--</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="alerts"></div>
+        
+        <div class="update-time">
+            Last updated: <span id="lastUpdate">Never</span>
+        </div>
+    </div>
+    
+    <script>
+        let updateInterval;
+        
+        async function fetchTrainingData() {
+            try {
+                const response = await fetch('http://localhost:8000/status');
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('trainingStatus').textContent = 'Connection Error';
+                document.getElementById('trainingStatus').className = 'status-badge status-inactive';
+            }
+        }
+        
+        function updateDashboard(data) {
+            // Update status badge
+            const statusBadge = document.getElementById('trainingStatus');
+            if (data.is_running) {
+                statusBadge.textContent = '✓ TRAINING ACTIVE';
+                statusBadge.className = 'status-badge status-active';
+            } else {
+                statusBadge.textContent = '✗ NOT RUNNING';
+                statusBadge.className = 'status-badge status-inactive';
+            }
+            
+            // Update progress
+            if (data.training) {
+                const epoch = data.training.epoch;
+                const progress = (epoch / 100) * 100;
+                
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressFill').textContent = progress.toFixed(1) + '%';
+                document.getElementById('epochText').textContent = `Epoch ${epoch}/100`;
+                
+                // Update losses
+                document.getElementById('boxLoss').textContent = data.training.box_loss.toFixed(4);
+                document.getElementById('clsLoss').textContent = data.training.cls_loss.toFixed(4);
+                document.getElementById('dflLoss').textContent = data.training.dfl_loss.toFixed(4);
+                
+                // Update metrics
+                document.getElementById('precision').textContent = data.training.precision.toFixed(4);
+                document.getElementById('recall').textContent = data.training.recall.toFixed(4);
+                document.getElementById('map50').textContent = data.training.map50.toFixed(4);
+                document.getElementById('map5095').textContent = data.training.map50_95.toFixed(4);
+                
+                // Update time info
+                document.getElementById('timeElapsed').textContent = data.training.time_elapsed;
+                document.getElementById('avgEpoch').textContent = data.training.avg_per_epoch;
+                document.getElementById('timeRemaining').textContent = data.training.time_remaining;
+                document.getElementById('completionTime').textContent = data.training.completion_time;
+                document.getElementById('etaText').textContent = data.training.time_remaining;
+            }
+            
+            // Update GPU stats
+            if (data.gpu) {
+                document.getElementById('gpuUtil').textContent = data.gpu.utilization + '%';
+                document.getElementById('gpuMem').textContent = data.gpu.memory;
+                document.getElementById('gpuPower').textContent = data.gpu.power + ' W';
+                
+                const temp = parseFloat(data.gpu.temperature);
+                const tempElement = document.getElementById('gpuTemp');
+                tempElement.textContent = temp + '°C';
+                
+                if (temp < 70) {
+                    tempElement.className = 'gpu-temp temp-normal';
+                } else if (temp < 80) {
+                    tempElement.className = 'gpu-temp temp-warm';
+                } else {
+                    tempElement.className = 'gpu-temp temp-hot';
+                }
+            }
+            
+            // Update alerts
+            updateAlerts(data);
+            
+            // Update last update time
+            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+        }
+        
+        function updateAlerts(data) {
+            const alertsDiv = document.getElementById('alerts');
+            alertsDiv.innerHTML = '';
+            
+            if (data.training && data.training.epoch >= 99) {
+                alertsDiv.innerHTML = '<div class="success">🎉 Training Complete! Your model is ready.</div>';
+            } else if (data.training && data.training.map50 === 0 && data.training.epoch < 30) {
+                alertsDiv.innerHTML = '<div class="warning">ℹ️ Metrics will become non-zero around epoch 30-50. This is normal.</div>';
+            }
+            
+            if (data.gpu && parseFloat(data.gpu.temperature) > 80) {
+                alertsDiv.innerHTML += '<div class="warning">⚠️ GPU temperature is high! Ensure proper ventilation.</div>';
+            }
+        }
+        
+        // Start auto-refresh
+        fetchTrainingData();
+        updateInterval = setInterval(fetchTrainingData, 5000);
+    </script>
+</body>
+</html>
