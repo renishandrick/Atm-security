@@ -1,5 +1,0 @@
-train: dataset/images/train
-val: dataset/images/train
-
-nc: 3
-names: ['face','mask','helmet']

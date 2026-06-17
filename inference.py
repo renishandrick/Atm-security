@@ -60,8 +60,40 @@ def run_on_webcam(model, conf=0.5):
         
         # Run inference every 3 frames (for performance)
         if frame_count % 3 == 0:
-            results = model(frame, conf=conf, verbose=False)
-            frame = results[0].plot()
+            # OPTIMIZATION: Resize frame for faster inference
+            h, w = frame.shape[:2]
+            if w > 640:
+                scale = 640 / w
+                frame_small = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
+            else:
+                frame_small = frame
+                
+            results = model(frame_small, conf=conf, verbose=False)
+            result = results[0]
+            frame = result.plot() # result.plot() returns the image at the size of the input (small)
+            
+            # Upscale back for display if it was resized
+            if w > 640:
+                frame = cv2.resize(frame, (w, h))
+            
+            # Check for mask (1) or helmet (2)
+            classes = result.boxes.cls.tolist()
+            instructions = []
+            if 1 in classes:
+                instructions.append("PLEASE REMOVE MASK")
+            if 2 in classes:
+                instructions.append("PLEASE REMOVE HELMET")
+            
+            # Add instruction overlay if needed
+            if instructions:
+                h, w, _ = frame.shape
+                # Draw a prominent red banner at the top
+                overlay_height = 60 * len(instructions)
+                cv2.rectangle(frame, (0, 0), (w, overlay_height), (0, 0, 255), -1)
+                
+                for i, msg in enumerate(instructions):
+                    cv2.putText(frame, msg, (20, 45 + (i * 50)), 
+                                cv2.FONT_HERSHEY_DUPLEX, 1.2, (255, 255, 255), 3)
         
         cv2.imshow("ATM Security Detection - Webcam", frame)
         
@@ -81,7 +113,7 @@ def main():
     parser.add_argument('--image', help='Path to input image')
     parser.add_argument('--webcam', action='store_true', help='Use webcam')
     parser.add_argument('--conf', type=float, default=0.5, help='Confidence threshold')
-    parser.add_argument('--device', default='0', help='GPU device or cpu')
+    parser.add_argument('--device', default='cuda', help='GPU device or cpu')
     parser.add_argument('--output', help='Path to save output image')
     
     args = parser.parse_args()

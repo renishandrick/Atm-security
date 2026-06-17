@@ -4,3 +4,7 @@ torch
 torchvision
 numpy
 labelImg
+flask
+flask_socketio
+supabase
+python-dotenv
